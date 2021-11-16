@@ -2,10 +2,7 @@ package org.example;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
@@ -15,6 +12,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -95,7 +93,7 @@ public class HDFS_Basic_Operations {
      Path path = new Path("/user/bigfile");
      SequenceFile.Writer write = new SequenceFile.Writer(fs, conf, path, Text.class, Text.class);
 
-     File[] files = new File("C:\\Users\\cdx\\Documents\\transwarp\\我的坚果云\\05Coding\\HadoopDemo1\\data").listFiles();
+     File[] files = new File("data/").listFiles();
          assert files != null;
          for(File f : files) {
      write.append(new Text(f.getName()), new Text(FileUtils.readFileToString(f)));
@@ -122,16 +120,18 @@ public class HDFS_Basic_Operations {
     public void testCopyFromLocalFile() throws IOException {
 
     // 上传文件
-    fs.copyFromLocalFile(new Path("C:\\Users\\cdx\\Documents\\transwarp\\我的坚果云\\05Coding\\HadoopDemo1\\data\\data.txt"), new Path("/user/chen/data.txt"));
+    fs.copyFromLocalFile(new Path("data/data.txt"), new Path("/user/chen/data.txt"));
     System.out.println("over");
 
     }
 
+
+    // 文件通过IO流上传
     @Test
     public void putFileToHDFS() throws IOException {
 
         // 1 创建输入流
-        FileInputStream fis = new FileInputStream(new File("C:\\Users\\cdx\\Documents\\transwarp\\我的坚果云\\05Coding\\HadoopDemo1\\data\\data.txt"));
+        FileInputStream fis = new FileInputStream(new File("data/data.txt"));
 
         // 2 获取输出流
         FSDataOutputStream fos = fs.create(new Path("/tmp/data.txt"));
@@ -145,6 +145,68 @@ public class HDFS_Basic_Operations {
         fs.close();
     }
 
+    // 文件通过IO流下载
+    @Test
+    public void getFileFromHDFS() throws IOException {
 
+        // 1 获取输入流
+        FSDataInputStream fis = fs.open(new Path("/tmp/data.txt"));
+
+        // 2 获取输出流
+        FileOutputStream fos = new FileOutputStream(new File("data_get/get.txt"));
+
+        // 3 流的对拷
+        IOUtils.copyBytes(fis, fos, conf);
+
+        // 4 关闭资源
+        IOUtils.closeStream(fos);
+        IOUtils.closeStream(fis);
+        fs.close();
+    }
+
+    // 文件切块下载
+    // 第一块
+    @Test
+    public void readFileSeek1() throws IOException, InterruptedException, URISyntaxException{
+
+        // 1 获取输入流
+        FSDataInputStream fis = fs.open(new Path("/tmp/data.txt"));
+
+        // 2 创建输出流
+        FileOutputStream fos = new FileOutputStream(new File("data_get/data1.txt"));
+
+        // 3 流的拷贝
+        byte[] buf = new byte[1024];
+
+        for(int i =0 ; i < 1024 * 128; i++){
+            fis.read(buf);
+            fos.write(buf);
+        }
+
+        // 4 关闭资源
+        IOUtils.closeStream(fis);
+        IOUtils.closeStream(fos);
+    }
+
+    // 第二块
+    @Test
+    public void readFileSeek2() throws IOException, InterruptedException, URISyntaxException{
+
+        // 1 打开输入流
+        FSDataInputStream fis = fs.open(new Path("/hadoop-2.7.2.tar.gz"));
+
+        // 2 定位输入数据位置
+        fis.seek(1024*1024*128);
+
+        // 3 创建输出流
+        FileOutputStream fos = new FileOutputStream(new File("e:/hadoop-2.7.2.tar.gz.part2"));
+
+        // 4 流的对拷
+        IOUtils.copyBytes(fis, fos, conf);
+
+        // 5 关闭资源
+        IOUtils.closeStream(fis);
+        IOUtils.closeStream(fos);
+    }
 
 }
